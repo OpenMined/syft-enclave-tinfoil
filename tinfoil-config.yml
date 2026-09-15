@@ -25,6 +25,15 @@ containers:
     image: docker.io/openminedreleasebot/syft-enclave@sha256:a0853d6657b3431ca24d8ce55c511d57cbae1b8ba05632ef491b4361360fbe77
     restart: always
     networks: [egress]
+    # Tinfoil runs containers with a read-only root filesystem, but syft needs
+    # a writable /tmp before it can even import: portalocker calls
+    # tempfile.gettempdir() at import time and raises without one.
+    #
+    # Writable here means the CVM's ramdisk, which SEV-SNP encrypts in
+    # hardware and which never touches a host disk. There is no persistent
+    # volume to encrypt — Tinfoil Containers have none, and state is lost on
+    # restart. That suits us: SYFT_ENCLAVE_FRESH_STATE wipes it at boot anyway.
+    read_only: false
     env:
       - SYFT_ENCLAVE_ATTESTATION_PROVIDER: "tinfoil"
       - SYFT_ENCLAVE_TINFOIL_REPO: "OpenMined/syft-enclave-tinfoil"
