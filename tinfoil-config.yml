@@ -22,7 +22,7 @@ containers:
     # Must be pinned by digest: this is what the attestation commits to and
     # what a data owner verifies. `just tinfoil-release` fills it in from the
     # image it just pushed.
-    image: docker.io/openminedreleasebot/syft-enclave@sha256:a0853d6657b3431ca24d8ce55c511d57cbae1b8ba05632ef491b4361360fbe77
+    image: docker.io/openminedreleasebot/syft-enclave@sha256:d97ea2748c1294ef8d8d35f81e4330abb0a5faf85eec566ec94da989f91e3ddc
     restart: always
     networks: [egress]
     # Tinfoil runs containers with a read-only root filesystem, but syft needs
@@ -50,6 +50,10 @@ containers:
       - SYFT_ENCLAVE_REQUIRE_TEE
       - SYFT_ENCLAVE_USE_ENCRYPTION
       - SYFT_ENCLAVE_TINFOIL_RELEASE_TAG
+      # Where peers fetch the report over a connection pinned to the key the
+      # report commits to. Untrusted: a wrong host either fails the pin or is
+      # this enclave.
+      - SYFT_ENCLAVE_TINFOIL_HOST
     secrets:
       # Value supplied by `tinfoil container create --secret`; only the NAME is
       # measured, never the value.
