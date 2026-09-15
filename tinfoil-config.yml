@@ -1,0 +1,64 @@
+# Tinfoil workload config for the syft enclave.
+#
+# This is the canonical copy. `just tinfoil-config-pr` opens a pull request
+# that syncs it to the root of the public config repo, whose signed GitHub
+# releases publish the expected launch measurement. Keeping it here means the
+# image and the config that pins it are reviewed together.
+#
+# Everything in this file is MEASURED: its sha256 lands in the CVM's kernel
+# command line, so any change needs a new config release. Deployment-specific
+# values are therefore passed at deploy time with `--variable` instead (see
+# `just tinfoil-deploy`), which also means they are NOT verifiable — same
+# position as `tee-env-*` metadata on Confidential Spaces.
+#
+# Field reference: https://docs.tinfoil.sh/containers/configuration
+cvm-version: 0.14.7
+cpus: 2
+memory: 8192
+gpus: 0
+
+containers:
+  - name: syft-enclave
+    # Must be pinned by digest: this is what the attestation commits to and
+    # what a data owner verifies. `just tinfoil-release` fills it in from the
+    # image it just pushed.
+    image: docker.io/openminedreleasebot/syft-enclave@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    restart: always
+    networks: [default]
+    env:
+      - SYFT_ENCLAVE_ATTESTATION_PROVIDER: "tinfoil"
+      - SYFT_ENCLAVE_TINFOIL_REPO: "OpenMined/syft-enclave-tinfoil"
+      # Tinfoil has no Secret Manager equivalent; the Drive token arrives as a
+      # deploy-time secret and this provider writes it to disk (0600).
+      - SYFT_BOOTSTRAP: "tinfoil"
+    secrets:
+      # Value supplied by `tinfoil container create --secret`; only the NAME is
+      # measured, never the value.
+      - SYFT_ENCLAVE_TOKEN_CONTENT
+
+shim:
+  # Required — the config is rejected without it.
+  upstream-port: 8080
+  upstream-container: syft-enclave
+  # Only these paths are reachable; everything else 404s. The shim serves
+  # /.well-known/tinfoil-attestation regardless of this list.
+  paths:
+    - /
+    - /health
+    - /attestation
+  publish-attestation: true
+  dummy-attestation: false
+
+# Keyed by network name (the schema is a map, not a list).
+networks:
+  default:
+    # Egress defaults to `closed`, which would leave the enclave unable to
+    # reach Google Drive at all. Exact hostnames only — no wildcards, no IPs.
+    egress: allowlist
+    allow:
+      # Drive v3 (syft/sync/connections/drive/gdrive_transport.py).
+      - www.googleapis.com
+      # google-auth exchanging the refresh token for an access token.
+      - oauth2.googleapis.com
+      # Deliberately absent: accounts.google.com. The enclave must never run an
+      # interactive OAuth flow, so let that fail loudly instead.
