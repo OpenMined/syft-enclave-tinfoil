@@ -75,13 +75,20 @@ shim:
 # validation and fails on the host.
 networks:
   egress:
-    # Egress defaults to `closed`, which would leave the enclave unable to
-    # reach Google Drive at all. Exact hostnames only — no wildcards, no IPs.
-    egress: allowlist
-    allow:
-      # Drive v3 (syft/sync/connections/drive/gdrive_transport.py).
-      - www.googleapis.com
-      # google-auth exchanging the refresh token for an access token.
-      - oauth2.googleapis.com
-      # Deliberately absent: accounts.google.com. The enclave must never run an
-      # interactive OAuth flow, so let that fail loudly instead.
+    # `open` allows any public address; RFC1918 and other private ranges stay
+    # blocked. `closed` (the default) would leave the enclave unable to reach
+    # Google Drive at all.
+    #
+    # Why not `allowlist`? It was tried and does not work for Google. The
+    # firewall resolves allowlisted hostnames to IPs once, at boot, and Google
+    # rotates them: with both www.googleapis.com and oauth2.googleapis.com
+    # listed, www stayed reachable while oauth2's current address
+    # (172.217.78.95) timed out, so every OAuth token refresh hung. Wildcards
+    # and IP literals are rejected by the schema, so there is no way to express
+    # a stable rule for these endpoints.
+    #
+    # The enclave's confidentiality does not rest on this: that comes from the
+    # measurement and the hardware. Egress filtering was defence-in-depth
+    # against a misbehaving workload, and it is the one property we give up
+    # here. Revisit if Tinfoil starts re-resolving allowlist entries.
+    egress: open
