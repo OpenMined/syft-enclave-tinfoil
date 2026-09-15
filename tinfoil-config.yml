@@ -24,7 +24,7 @@ containers:
     # image it just pushed.
     image: docker.io/openminedreleasebot/syft-enclave@sha256:a0853d6657b3431ca24d8ce55c511d57cbae1b8ba05632ef491b4361360fbe77
     restart: always
-    networks: [default]
+    networks: [egress]
     env:
       - SYFT_ENCLAVE_ATTESTATION_PROVIDER: "tinfoil"
       - SYFT_ENCLAVE_TINFOIL_REPO: "OpenMined/syft-enclave-tinfoil"
@@ -49,9 +49,13 @@ shim:
   publish-attestation: true
   dummy-attestation: false
 
-# Keyed by network name (the schema is a map, not a list).
+# Keyed by network name (the schema is a map, not a list). Do NOT call a
+# network "default" — Docker predefines that name and the firewall setup fails
+# at deploy time with "operation is not permitted on predefined default
+# network". The canonical schema only reserves "shim-net", so this passes
+# validation and fails on the host.
 networks:
-  default:
+  egress:
     # Egress defaults to `closed`, which would leave the enclave unable to
     # reach Google Drive at all. Exact hostnames only — no wildcards, no IPs.
     egress: allowlist
