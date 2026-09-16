@@ -1,9 +1,14 @@
 # Tinfoil workload config for the syft enclave.
 #
-# This is the canonical copy. `just tinfoil-config-pr` opens a pull request
-# that syncs it to the root of the public config repo, whose signed GitHub
-# releases publish the expected launch measurement. Keeping it here means the
-# image and the config that pins it are reviewed together.
+# This is the canonical copy: `just tinfoil-release` pins the digest of the
+# image it just pushed into this file, and `just tinfoil-config-pr` opens a
+# pull request syncing it to the root of the public config repo, whose signed
+# GitHub releases publish the expected launch measurement. Keeping it here
+# means the image and the config that pins it are reviewed together.
+#
+# The release workflows themselves live only in that repo
+# (OpenMined/syft-enclave-tinfoil), not here — nothing in PySyft runs or reads
+# them, and a second copy would just drift.
 #
 # Everything in this file is MEASURED: its sha256 lands in the CVM's kernel
 # command line, so any change needs a new config release. Deployment-specific
@@ -22,7 +27,7 @@ containers:
     # Must be pinned by digest: this is what the attestation commits to and
     # what a data owner verifies. `just tinfoil-release` fills it in from the
     # image it just pushed.
-    image: docker.io/openminedreleasebot/syft-enclave@sha256:fa733440e581ad635f8ff6260b348a9ce127347c34b335fa29bbdc3736117bd2
+    image: docker.io/openminedreleasebot/syft-enclave@
     restart: always
     networks: [egress]
     # Tinfoil runs containers with a read-only root filesystem, but syft needs
@@ -36,11 +41,11 @@ containers:
     read_only: false
     env:
       # Key AND value pinned here, so both are measured and verifiable.
-      - SYFT_ENCLAVE_ATTESTATION_PROVIDER: "tinfoil"
-      - SYFT_ENCLAVE_TINFOIL_REPO: "OpenMined/syft-enclave-tinfoil"
+      - SYFT_ENCLAVE_ATTESTATION_PROVIDER: 'tinfoil'
+      - SYFT_ENCLAVE_TINFOIL_REPO: 'OpenMined/syft-enclave-tinfoil'
       # Tinfoil has no Secret Manager equivalent; the Drive token arrives as a
       # deploy-time secret and this provider writes it to disk (0600).
-      - SYFT_BOOTSTRAP: "tinfoil"
+      - SYFT_BOOTSTRAP: 'tinfoil'
       # Declared as bare names: the key is measured, the VALUE comes from
       # `--variable` at deploy time and is therefore NOT measured — a data
       # owner cannot verify it. Declaring is mandatory even so: the shim
