@@ -1,19 +1,8 @@
-# Tinfoil workload config for the syft enclave, with signed receipts on.
+# Tinfoil workload config for the syft enclave.
 #
-# Identical to tinfoil-config.yml apart from SYFT_ENCLAVE_RECEIPTS, and
-# released under its own tag:
-#   just tinfoil-release <version> tinfoil/tinfoil-config-receipts.yml
-#
-# This is the canonical copy: `just tinfoil-build` pins the digest of the
-# image it just pushed into this file and tinfoil-config-receipts.yml, and
-# `just tinfoil-release` syncs one of them to the root of the public config
-# repo and publishes it as a signed GitHub release carrying the expected
-# launch measurement. Keeping it here means the image and the config that pins
-# it are reviewed together.
-#
-# The release workflows themselves live only in that repo
-# (OpenMined/syft-enclave-tinfoil), not here — nothing in PySyft runs or reads
-# them, and a second copy would just drift.
+# Working copy. Releases are published from OpenMined/syft-enclave-tinfoil,
+# which `just tinfoil-release` copies this file into; see "Where the configs
+# live" in docs/tinfoil_deployment.md.
 #
 # Everything in this file is MEASURED: its sha256 lands in the CVM's kernel
 # command line, so any change needs a new config release. Deployment-specific
@@ -22,7 +11,9 @@
 # position as `tee-env-*` metadata on Confidential Spaces.
 #
 # Field reference: https://docs.tinfoil.sh/containers/configuration
-cvm-version: 0.14.7
+# 0.14.12 or later: the first image that mounts /tinfoil/attestation.sock for
+# containers with `attestation: true` (see below).
+cvm-version: 0.14.12
 cpus: 2
 memory: 8192
 gpus: 0
@@ -32,7 +23,7 @@ containers:
     # Must be pinned by digest: this is what the attestation commits to and
     # what a data owner verifies. `just tinfoil-release` fills it in from the
     # image it just pushed.
-    image: docker.io/openminedreleasebot/syft-enclave@sha256:c0a492675e116429e2cc3241beaae84da8fb953a6980abdea4ee2df6cfc88fbc
+    image: docker.io/openminedreleasebot/syft-enclave@sha256:c882b58611daef9a22259f8a1a4a3c3369bf8c1a9a740b26155e292b4e08934d
     restart: always
     networks: [egress]
     # Tinfoil runs containers with a read-only root filesystem, but syft needs
@@ -44,6 +35,10 @@ containers:
     # volume to encrypt — Tinfoil Containers have none, and state is lost on
     # restart. That suits us: SYFT_ENCLAVE_FRESH_STATE wipes it at boot anyway.
     read_only: false
+    # Mounts /tinfoil/attestation.sock, where the enclave gets a report whose
+    # nonce is its run key, so the report names the key that signs receipts
+    # (receipt/key_binding.py). Off by default in Tinfoil.
+    attestation: true
     env:
       # Key AND value pinned here, so both are measured and verifiable.
       - SYFT_ENCLAVE_ATTESTATION_PROVIDER: 'tinfoil'
@@ -54,7 +49,7 @@ containers:
       - SYFT_ENCLAVE_DATA_OWNERS: 'benchmark_owner@openmined.org,model_owner@openmined.org'
       # Whether each job's outputs carry a signed receipt. The only line that
       # differs between tinfoil-config.yml and tinfoil-config-receipts.yml.
-      - SYFT_ENCLAVE_RECEIPTS: 'true'
+      - SYFT_ENCLAVE_RECEIPTS: 'false'
       # Tinfoil has no Secret Manager equivalent; the Drive token arrives as a
       # deploy-time secret and this provider writes it to disk (0600).
       - SYFT_BOOTSTRAP: 'tinfoil'
